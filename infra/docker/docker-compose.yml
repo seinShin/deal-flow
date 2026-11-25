@@ -1,0 +1,65 @@
+# 실행 위치: 저장소 루트
+#
+# 1) 개발할 때 (DB만 컨테이너, 앱은 IDE/npm으로 실행)
+#    docker compose -f infra/docker/docker-compose.yml --env-file .env up -d
+#
+# 2) 전체를 컨테이너로 띄울 때 (backend/frontend Dockerfile 작성 후)
+#    docker compose -f infra/docker/docker-compose.yml --env-file .env --profile app up -d --build
+#
+# 정리: ... down        (데이터 유지)
+#       ... down -v     (DB 데이터까지 삭제)
+
+name: deal-flow
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: dealflow-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    profiles: ["app"]
+    build:
+      context: ../../backend
+    container_name: dealflow-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ../../frontend
+    container_name: dealflow-frontend
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  db-data:
