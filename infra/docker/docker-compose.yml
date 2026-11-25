@@ -16,12 +16,8 @@ services:
     image: mysql:8.0
     container_name: dealflow-db
     restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      TZ: Asia/Seoul
+    env_file:
+      - ../../.env         # compose 파일 기준 상대경로 → 루트 .env
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

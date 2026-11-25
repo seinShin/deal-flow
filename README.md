@@ -4,10 +4,10 @@
 
 ## 기술 스택
 
-| 영역 | 스택 |
-|---|---|
-| Frontend | Vue 3, TypeScript, Vite |
-| Backend | Spring Boot 3, JPA, MySQL 8 |
+| 영역 | 스택                                                 |
+|---|----------------------------------------------------|
+| Frontend | React, TypeScript, Vite                            |
+| Backend | Spring Boot 3, JPA, MySQL 8                        |
 | Infra | Docker, Docker Compose, Kubernetes, GitHub Actions |
 
 ## 폴더 구조
