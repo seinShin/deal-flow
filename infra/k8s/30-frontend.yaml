@@ -1,0 +1,48 @@
+# ===== 프론트: Deployment + Service =====
+# 백엔드(20-backend.yaml)를 먼저 적용하세요.
+# nginx가 시작할 때 backend Service 이름을 찾기 때문에, 없으면 프론트가 뜨지 않아요.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: dealflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # 로컬에서 docker build -t dealflow-frontend:local ./frontend 로 만든 이미지
+          image: dealflow-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: dealflow
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80

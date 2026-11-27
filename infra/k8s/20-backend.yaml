@@ -1,0 +1,76 @@
+# ===== 백엔드: ConfigMap + Deployment + Service =====
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: dealflow
+data:
+  SPRING_PROFILES_ACTIVE: local
+  DB_NAME: dealflow
+  DB_USER: dealflow
+  # 클러스터 안에서 DB 주소는 Service 이름 db
+  SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/dealflow?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dealflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # 로컬에서 docker build -t dealflow-backend:local ./backend 로 만든 이미지
+          image: dealflow-backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_PASSWORD
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend           # 프론트 nginx.conf 의 proxy_pass http://backend:8080 과 같은 이름
+  namespace: dealflow
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080

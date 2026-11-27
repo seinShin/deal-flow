@@ -1,0 +1,78 @@
+# ===== MySQL: Service + StatefulSet =====
+# StatefulSet + PVC: Pod가 지워졌다 다시 떠도 데이터가 유지됨
+apiVersion: v1
+kind: Service
+metadata:
+  name: db                # 백엔드가 jdbc:mysql://db:3306 으로 접속하는 이름
+  namespace: dealflow
+spec:
+  clusterIP: None         # Headless Service (StatefulSet용)
+  selector:
+    app: db
+  ports:
+    - name: mysql
+      port: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet        # pod마다 고유하고 안정적인 이름/스토리지를 보장하는 워크로드 리소스
+metadata:
+  name: db
+  namespace: dealflow
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: dealflow
+            - name: MYSQL_USER
+              value: dealflow
+            - name: TZ
+              value: Asia/Seoul
+            - name: MYSQL_PASSWORD    # secret.yaml에 있는 정보 가져옴
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD   # secret.yaml에 있는 정보 가져옴
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MYSQL_ROOT_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: # 스케쥴링 시 pod를 위해 노드에서 보장해 줄 최소 리소스
+              cpu: 100m
+              memory: 512Mi
+            limits:   # 컨테이너가 쓸 수 있는 최대치
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:   # 여기서 정의한 data 볼륨을 컨테이너 내부의 /var/lib/mysql에 마운트 (재시작, 재생성 시에도 데이터 유지) > PVC 자동 발급
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

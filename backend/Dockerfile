@@ -20,8 +20,9 @@ FROM eclipse-temurin:${JAVA_VERSION}-jre
 WORKDIR /app
 
 # root가 아닌 사용자로 실행
-RUN useradd --system --create-home app
-USER app
+RUN groupadd --system --gid 1001 app \
+ && useradd --system --uid 1001 --gid 1001 --create-home app
+USER 1001:1001
 
 COPY --from=build /app/build/libs/*.jar app.jar
 
